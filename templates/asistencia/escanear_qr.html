@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+
+{% block title %}Escanear Código QR{% endblock %}
+
+{% block extra_css %}
+<style>
+    #qr-reader {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        border: 3px solid #3498db;
+        border-radius: 10px;
+    }
+    
+    .result-card {
+        animation: slideIn 0.5s;
+    }
+    
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mb-4 text-center"><i class="bi bi-qr-code-scan"></i> Escanear Código QR</h1>
+    
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <!-- Área de escaneo -->
+            <div class="card mb-4">
+                <div class="card-header text-center">
+                    <h5 class="mb-0"><i class="bi bi-camera"></i> Cámara de Escaneo</h5>
+                </div>
+                <div class="card-body">
+                    <div id="qr-reader"></div>
+                    
+                    <div class="text-center mt-3">
+                        <button id="btn-start" class="btn btn-success btn-lg">
+                            <i class="bi bi-play-circle"></i> Iniciar Escaneo
+                        </button>
+                        <button id="btn-stop" class="btn btn-danger btn-lg" style="display: none;">
+                            <i class="bi bi-stop-circle"></i> Detener Escaneo
+                        </button>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle"></i> 
+                        Coloca el código QR frente a la cámara para registrar la asistencia automáticamente.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Registro manual alternativo -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-keyboard"></i> Registro Manual (Código QR)</h5>
+                </div>
+                <div class="card-body">
+                    <form id="form-manual">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <input type="text" 
+                                   id="codigo-manual" 
+                                   class="form-control form-control-lg" 
+                                   placeholder="Ingrese el código QR manualmente"
+                                   autocomplete="off">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-circle"></i> Registrar
+                            </button>
+                        </div>
+                        <small class="text-muted">Útil si no tienes cámara disponible</small>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Resultado del registro -->
+            <div id="result-container" class="mt-4" style="display: none;">
+                <div class="card result-card" id="result-card">
+                    <div class="card-body text-center">
+                        <div id="result-content"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Librería Html5-QRCode -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script>
+    let html5QrCode;
+    let scanning = false;
+    
+    // Función para procesar el código QR
+    function procesarCodigoQR(codigoQR) {
+        if (!codigoQR) return;
+        
+        // Enviar al servidor
+        fetch('{% url "registrar_asistencia_qr" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `codigo_qr=${encodeURIComponent(codigoQR)}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            mostrarResultado(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarError('Error al registrar asistencia');
+        });
+    }
+    
+    // Mostrar resultado
+    function mostrarResultado(data) {
+        const resultContainer = document.getElementById('result-container');
+        const resultContent = document.getElementById('result-content');
+        const resultCard = document.getElementById('result-card');
+        
+        if (data.success) {
+            resultCard.className = 'card result-card border-success';
+            resultContent.innerHTML = `
+                <i class="bi bi-check-circle-fill text-success" style="font-size: 4rem;"></i>
+                <h3 class="mt-3 text-success">¡Asistencia Registrada!</h3>
+                <hr>
+                <p><strong>Estudiante:</strong> ${data.estudiante}</p>
+                <p><strong>Grado:</strong> ${data.grado}</p>
+                <p><strong>Sección:</strong> ${data.seccion}</p>
+                <p><strong>Estado:</strong> 
+                    <span class="badge ${data.estado === 'puntual' ? 'bg-success' : 'bg-warning'}">
+                        ${data.estado.toUpperCase()}
+                    </span>
+                </p>
+                <p><strong>Hora:</strong> ${data.hora}</p>
+            `;
+            
+            // Reproducir sonido de éxito (opcional)
+            playSound(true);
+        } else {
+            resultCard.className = 'card result-card border-danger';
+            resultContent.innerHTML = `
+                <i class="bi bi-x-circle-fill text-danger" style="font-size: 4rem;"></i>
+                <h3 class="mt-3 text-danger">Error</h3>
+                <p>${data.message}</p>
+            `;
+            
+            // Reproducir sonido de error (opcional)
+            playSound(false);
+        }
+        
+        resultContainer.style.display = 'block';
+        
+        // Ocultar después de 5 segundos
+        setTimeout(() => {
+            resultContainer.style.display = 'none';
+        }, 5000);
+    }
+    
+    // Mostrar error
+    function mostrarError(mensaje) {
+        mostrarResultado({
+            success: false,
+            message: mensaje
+        });
+    }
+    
+    // Sonido de feedback (opcional)
+    function playSound(success) {
+        // Puedes agregar sonidos aquí
+        const audio = new Audio(success ? 'data:audio/wav;base64,...' : 'data:audio/wav;base64,...');
+        audio.play().catch(() => {});
+    }
+    
+    // Iniciar escáner
+    document.getElementById('btn-start').addEventListener('click', function() {
+        html5QrCode = new Html5Qrcode("qr-reader");
+        
+        html5QrCode.start(
+            { facingMode: "environment" },
+            {
+                fps: 10,
+                qrbox: { width: 250, height: 250 }
+            },
+            (decodedText, decodedResult) => {
+                if (!scanning) {
+                    scanning = true;
+                    procesarCodigoQR(decodedText);
+                    
+                    // Esperar 3 segundos antes de permitir otro escaneo
+                    setTimeout(() => {
+                        scanning = false;
+                    }, 3000);
+                }
+            }
+        ).then(() => {
+            document.getElementById('btn-start').style.display = 'none';
+            document.getElementById('btn-stop').style.display = 'inline-block';
+        }).catch(err => {
+            alert('No se pudo acceder a la cámara: ' + err);
+        });
+    });
+    
+    // Detener escáner
+    document.getElementById('btn-stop').addEventListener('click', function() {
+        html5QrCode.stop().then(() => {
+            document.getElementById('btn-start').style.display = 'inline-block';
+            document.getElementById('btn-stop').style.display = 'none';
+        });
+    });
+    
+    // Registro manual
+    document.getElementById('form-manual').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const codigo = document.getElementById('codigo-manual').value.trim();
+        if (codigo) {
+            procesarCodigoQR(codigo);
+            document.getElementById('codigo-manual').value = '';
+        }
+    });
+</script>
+{% endblock %}

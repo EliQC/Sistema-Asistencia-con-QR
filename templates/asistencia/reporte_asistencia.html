@@ -1,0 +1,209 @@
+{% extends 'base.html' %}
+
+{% block title %}Reportes de Asistencia{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4"><i class="bi bi-file-earmark-bar-graph"></i> Reportes de Asistencia</h1>
+    
+    <!-- Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-funnel"></i> Filtros de Búsqueda</h5>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input type="date" name="fecha_inicio" class="form-control" 
+                           value="{{ request.GET.fecha_inicio }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Fin</label>
+                    <input type="date" name="fecha_fin" class="form-control" 
+                           value="{{ request.GET.fecha_fin }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Grado</label>
+                    <select name="grado" class="form-select">
+                        <option value="">Todos</option>
+                        {% for grado in grados %}
+                            <option value="{{ grado.id }}" 
+                                    {% if request.GET.grado == grado.id|stringformat:"s" %}selected{% endif %}>
+                                {{ grado.nombre }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Estudiante</label>
+                    <select name="estudiante" class="form-select">
+                        <option value="">Todos</option>
+                        {% for estudiante in estudiantes %}
+                            <option value="{{ estudiante.id }}" 
+                                    {% if request.GET.estudiante == estudiante.id|stringformat:"s" %}selected{% endif %}>
+                                {{ estudiante.nombre }} {{ estudiante.apellido }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-search"></i> Buscar
+                    </button>
+                    <a href="{% url 'reporte_asistencia' %}" class="btn btn-secondary">
+                        <i class="bi bi-x-circle"></i> Limpiar
+                    </a>
+                    <button type="button" class="btn btn-success" onclick="window.print()">
+                        <i class="bi bi-printer"></i> Imprimir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3>{{ total }}</h3>
+                    <p class="text-muted">Total Registros</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-success">
+                <div class="card-body">
+                    <h3 class="text-success">{{ puntuales }}</h3>
+                    <p class="text-muted">Puntuales</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-warning">
+                <div class="card-body">
+                    <h3 class="text-warning">{{ tardes }}</h3>
+                    <p class="text-muted">Tardanzas</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-danger">
+                <div class="card-body">
+                    <h3 class="text-danger">{{ faltas }}</h3>
+                    <p class="text-muted">Faltas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabla de resultados -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-table"></i> Registros de Asistencia</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Estudiante</th>
+                            <th>DNI</th>
+                            <th>Grado</th>
+                            <th>Sección</th>
+                            <th>Estado</th>
+                            <th>Observación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asistencia in asistencias %}
+                        <tr>
+                            <td>{{ asistencia.fecha|date:"d/m/Y" }}</td>
+                            <td>{{ asistencia.hora|time:"H:i" }}</td>
+                            <td>{{ asistencia.estudiante.nombre }} {{ asistencia.estudiante.apellido }}</td>
+                            <td>{{ asistencia.estudiante.dni }}</td>
+                            <td>{{ asistencia.estudiante.grado.nombre }}</td>
+                            <td>{{ asistencia.estudiante.seccion.nombre }}</td>
+                            <td>
+                                {% if asistencia.estado == 'puntual' %}
+                                    <span class="badge bg-success">✓ PUNTUAL</span>
+                                {% elif asistencia.estado == 'tarde' %}
+                                    <span class="badge bg-warning">⏰ TARDE</span>
+                                {% else %}
+                                    <span class="badge bg-danger">✗ FALTA</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ asistencia.observacion|default:"-" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center">
+                                <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                                <p class="mt-2">No hay registros de asistencia para mostrar</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gráfico (opcional) -->
+    {% if total > 0 %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Distribución de Asistencias</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="chartAsistencia" width="400" height="100"></canvas>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style media="print">
+    .sidebar, .navbar, .btn, .card-header { display: none !important; }
+    .content-area { padding: 0 !important; }
+    .card { box-shadow: none !important; border: 1px solid #000 !important; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+{% if total > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('chartAsistencia').getContext('2d');
+    const myChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Puntuales', 'Tardanzas', 'Faltas'],
+            datasets: [{
+                data: [{{ puntuales }}, {{ tardes }}, {{ faltas }}],
+                backgroundColor: [
+                    '#27ae60',
+                    '#f39c12',
+                    '#e74c3c'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                },
+                title: {
+                    display: true,
+                    text: 'Estadísticas de Asistencia'
+                }
+            }
+        }
+    });
+</script>
+{% endif %}
+{% endblock %}

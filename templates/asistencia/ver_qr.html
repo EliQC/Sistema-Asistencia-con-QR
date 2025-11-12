@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block title %}Código QR - {{ estudiante.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h4><i class="bi bi-qr-code"></i> Código QR del Estudiante</h4>
+                </div>
+                <div class="card-body text-center">
+                    <h5>{{ estudiante.nombre }} {{ estudiante.apellido }}</h5>
+                    <p class="text-muted">
+                        <strong>DNI:</strong> {{ estudiante.dni }}<br>
+                        <strong>Grado:</strong> {{ estudiante.grado.nombre }}<br>
+                        <strong>Sección:</strong> {{ estudiante.seccion.nombre }}
+                    </p>
+                    
+                    <div class="my-4">
+                        <img src="data:image/png;base64,{{ qr_base64 }}" 
+                             alt="Código QR" 
+                             class="img-fluid" 
+                             style="max-width: 300px; border: 2px solid #ddd; padding: 10px; background: white;">
+                    </div>
+                    
+                    <p class="text-muted small">
+                        <strong>Código:</strong> {{ estudiante.codigo_qr }}
+                    </p>
+                    
+                    <div class="mt-4">
+                        <a href="{% url 'generar_qr_estudiante' estudiante.id %}" 
+                           class="btn btn-primary" 
+                           download="qr_{{ estudiante.dni }}.png">
+                            <i class="bi bi-download"></i> Descargar QR
+                        </a>
+                        <a href="{% url 'lista_estudiantes' %}" class="btn btn-secondary">
+                            <i class="bi bi-arrow-left"></i> Volver
+                        </a>
+                    </div>
+                    
+                    <div class="alert alert-info mt-4">
+                        <i class="bi bi-info-circle"></i> 
+                        <strong>Instrucciones:</strong> Descarga e imprime este código QR. 
+                        El estudiante debe presentarlo al ingresar a la institución para registrar su asistencia.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

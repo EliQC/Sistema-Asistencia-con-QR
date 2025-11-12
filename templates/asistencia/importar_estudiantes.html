@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block title %}Importar Estudiantes{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">Importar Estudiantes</div>
+  <div class="card-body">
+    <p>Sube un archivo .xlsx o .csv con la lista de estudiantes. El importador normaliza encabezados y genera códigos QR por DNI.</p>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="mb-3">
+        {{ form.archivo.label_tag }}
+        {{ form.archivo }}
+      </div>
+      <div class="mb-3">
+        {{ form.periodo.label_tag }}
+        {{ form.periodo }}
+      </div>
+      <button class="btn btn-primary" type="submit">Subir e importar</button>
+    </form>
+  </div>
+</div>
+<div class="card mt-4">
+  <div class="card-header">Subidas recientes</div>
+  <div class="card-body">
+    {% if uploads %}
+      <table class="table table-sm">
+        <thead>
+          <tr><th>Archivo</th><th>Estado</th><th>Acciones</th></tr>
+        </thead>
+        <tbody>
+          {% for u in uploads %}
+            <tr data-upload-name="{{ u.name }}">
+              <td style="min-width:260px">{{ u.name }}</td>
+              <td style="min-width:240px">
+                <div>
+                  <strong id="status-{{ u.safe_id }}">{% if u.status %}{{ u.status.status }}{% else %}queued{% endif %}</strong>
+                </div>
+                <div class="progress mt-1" style="height:18px;">
+                  <div id="progress-{{ u.safe_id }}" class="progress-bar" role="progressbar" style="width:0%">0%</div>
+                </div>
+              </td>
+              <td>
+                <a class="btn btn-sm btn-outline-primary" href="/media/uploads/{{ u.name }}">Descargar</a>
+                <form style="display:inline" method="post" action="{% url 'import_delete_upload' u.name %}" onsubmit="return confirm('Eliminar archivo y estado?');">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Eliminar</button>
+                </form>
+                <a id="link-err-{{ u.safe_id }}" class="btn btn-sm btn-danger d-none" target="_blank">Ver errores</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No hay archivos subidos recientemente.</p>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  // Simple polling to fetch status JSON for a given upload name.
+  // Poll interval in ms
+  const POLL_INTERVAL = 2000;
+  const activePolls = {};
+
+  function startPolling(uploadName) {
+    if (activePolls[uploadName]) return; // already polling
+  // uploadName is the real filename. Find the row with data-upload-name and get its safe id
+  const row = document.querySelector(`tr[data-upload-name="${uploadName}"]`);
+  if (!row) return;
+  const safeId = row.querySelector('span[id^="status-"]').id.replace('status-','');
+  const el = document.getElementById(`status-${safeId}`);
+  const progressBar = document.getElementById(`progress-${safeId}`);
+  const errLink = document.getElementById(`link-err-${safeId}`);
+
+    function fetchStatus() {
+      fetch(`{% url 'import_status' 'UPLOAD_NAME' %}`.replace('UPLOAD_NAME', encodeURIComponent(uploadName)), {
+        method: 'GET',
+        headers: {'Accept': 'application/json'},
+        credentials: 'same-origin'
+      }).then(r => r.json()).then(data => {
+        if (data && data.ok && data.status) {
+          const s = data.status.status || 'unknown';
+          if (el) el.textContent = s;
+          // progress
+          if (data.status.processed != null && data.status.total) {
+            const pct = Math.round((data.status.processed / data.status.total) * 100);
+            if (progressBar) {
+              progressBar.style.width = pct + '%';
+              progressBar.textContent = pct + '%';
+            }
+          }
+          // errors log link (status.errors_log is a path under MEDIA_ROOT)
+          if (data.status.errors_log) {
+            if (errLink) {
+              errLink.href = '/media/' + data.status.errors_log;
+              errLink.classList.remove('d-none');
+            }
+          }
+          if (s === 'failed') {
+            stopPolling(uploadName);
+          } else if (s === 'done') {
+            stopPolling(uploadName);
+          }
+        } else {
+          if (el) el.textContent = 'error';
+          stopPolling(uploadName);
+        }
+      }).catch(e => {
+        if (el) el.textContent = 'error';
+        stopPolling(uploadName);
+      });
+    }
+
+  activePolls[uploadName] = setInterval(fetchStatus, POLL_INTERVAL);
+    // immediately fetch once
+    fetchStatus();
+  }
+
+  function stopPolling(uploadName) {
+    if (!activePolls[uploadName]) return;
+    clearInterval(activePolls[uploadName]);
+    delete activePolls[uploadName];
+  }
+
+  // On page load, auto-start polling for uploads with queued/processing status
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('tr[data-upload-name]').forEach(function(row) {
+      const uploadName = row.getAttribute('data-upload-name');
+      const statusEl = row.querySelector('span[id^="status-"]');
+      if (!statusEl) return;
+      const st = statusEl.textContent.trim().toLowerCase();
+      if (st === 'queued' || st === 'processing') {
+        startPolling(uploadName);
+      }
+    });
+  });
+</script>
+{% endblock %}

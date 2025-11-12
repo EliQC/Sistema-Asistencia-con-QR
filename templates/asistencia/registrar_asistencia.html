@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}Registrar Asistencia Manual{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4"><i class="bi bi-pencil-square"></i> Registrar Asistencia Manual</h1>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-table"></i> Seleccionar Estudiante</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Filtro por grado -->
+                    <div class="mb-3">
+                        <label class="form-label">Filtrar por Grado</label>
+                        <select id="filtro-grado" class="form-select">
+                            <option value="">Todos los grados</option>
+                            {% for grado in grados %}
+                                <option value="{{ grado.id }}">{{ grado.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <!-- Tabla de estudiantes -->
+                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                        <table class="table table-sm table-hover">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>DNI</th>
+                                    <th>Nombre</th>
+                                    <th>Grado</th>
+                                    <th>Sección</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabla-estudiantes">
+                                {% for estudiante in estudiantes %}
+                                <tr data-grado="{{ estudiante.grado.id }}">
+                                    <td>{{ estudiante.dni }}</td>
+                                    <td>{{ estudiante.nombre }} {{ estudiante.apellido }}</td>
+                                    <td>{{ estudiante.grado.nombre }}</td>
+                                    <td>{{ estudiante.seccion.nombre }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary btn-select" 
+                                                data-id="{{ estudiante.id }}"
+                                                data-nombre="{{ estudiante.nombre }} {{ estudiante.apellido }}">
+                                            Seleccionar
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Registro de Asistencia</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="form-asistencia">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Estudiante Seleccionado</label>
+                            <input type="hidden" name="estudiante_id" id="estudiante_id" required>
+                            <input type="text" class="form-control" id="estudiante_nombre" readonly 
+                                   placeholder="Seleccione un estudiante">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Estado *</label>
+                            <select name="estado" class="form-select" required>
+                                <option value="">Seleccione...</option>
+                                <option value="puntual">✅ Puntual</option>
+                                <option value="tarde">⏰ Tarde</option>
+                                <option value="falta">❌ Falta</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Observación (opcional)</label>
+                            <textarea name="observacion" class="form-control" rows="3" 
+                                      placeholder="Ingrese una observación si es necesario"></textarea>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-check-circle"></i> Registrar Asistencia
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-body text-center">
+                    <p class="mb-2"><i class="bi bi-clock"></i> Hora actual</p>
+                    <h4 id="current-time"></h4>
+                    <small class="text-muted">La hora se registrará automáticamente</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Filtrar estudiantes por grado
+    document.getElementById('filtro-grado').addEventListener('change', function() {
+        const gradoId = this.value;
+        const filas = document.querySelectorAll('#tabla-estudiantes tr');
+        
+        filas.forEach(fila => {
+            if (gradoId === '' || fila.dataset.grado === gradoId) {
+                fila.style.display = '';
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+    });
+    
+    // Seleccionar estudiante
+    document.querySelectorAll('.btn-select').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const id = this.dataset.id;
+            const nombre = this.dataset.nombre;
+            
+            document.getElementById('estudiante_id').value = id;
+            document.getElementById('estudiante_nombre').value = nombre;
+            
+            // Highlight
+            document.querySelectorAll('.btn-select').forEach(b => {
+                b.classList.remove('btn-success');
+                b.classList.add('btn-primary');
+                b.textContent = 'Seleccionar';
+            });
+            
+            this.classList.remove('btn-primary');
+            this.classList.add('btn-success');
+            this.textContent = '✓ Seleccionado';
+        });
+    });
+    
+    // Reloj en tiempo real
+    function updateTime() {
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('es-PE');
+        document.getElementById('current-time').textContent = timeString;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+</script>
+{% endblock %}
