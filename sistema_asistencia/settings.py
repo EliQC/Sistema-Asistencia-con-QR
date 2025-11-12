@@ -12,7 +12,15 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
-from distutils.util import strtobool
+
+# Small helper to parse boolean-like environment variables without importing
+# distutils (which may be missing on some Python installations). Accepts
+# values like '1', 'true', 'yes' (case-insensitive) as True.
+def env_bool(name: str, default: bool = False) -> bool:
+    val = os.environ.get(name)
+    if val is None:
+        return default
+    return val.lower() in ("1", "true", "yes")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +34,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-asistencia-iejaqg-2025-change-this-in-production')
 
 # DEBUG should be False in production. Control via env var DJANGO_DEBUG (True/False)
-DEBUG = bool(os.environ.get('DJANGO_DEBUG', 'True') == 'True') if os.environ.get('DJANGO_DEBUG') else True
+DEBUG = env_bool('DJANGO_DEBUG', True)
 
 # ALLOWED_HOSTS can be provided as a comma-separated env var
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',') if h.strip()]
