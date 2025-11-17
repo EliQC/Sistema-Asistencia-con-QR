@@ -144,13 +144,9 @@
 
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
-            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar offcanvas offcanvas-start" tabindex="-1">
-                <div class="offcanvas-header">
-                    <h5 class="offcanvas-title">Menú</h5>
-                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                </div>
-                <div class="offcanvas-body d-flex flex-column p-0">
+            <!-- Sidebar (visible en escritorio) -->
+            <nav class="col-12 col-md-2 d-none d-md-block sidebar">
+                <div class="position-sticky pt-3">
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="{% url 'dashboard' %}">
@@ -198,8 +194,64 @@
                 </div>
             </nav>
 
+            <!-- Sidebar offcanvas para móviles -->
+            <div class="d-md-none">
+                <nav id="sidebarMenu" class="offcanvas offcanvas-start" tabindex="-1">
+                    <div class="offcanvas-header">
+                        <h5 class="offcanvas-title">Menú</h5>
+                        <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                    </div>
+                    <div class="offcanvas-body d-flex flex-column p-0">
+                        <ul class="nav flex-column">
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="{% url 'dashboard' %}">
+                                    <i class="bi bi-speedometer2"></i> Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'estudiantes' in request.path %}active{% endif %}" href="{% url 'lista_estudiantes' %}">
+                                    <i class="bi bi-people"></i> Estudiantes
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'registrar' in request.path %}active{% endif %}" href="{% url 'registrar_asistencia_manual' %}">
+                                    <i class="bi bi-pencil-square"></i> Registrar Asistencia
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'escanear' in request.path %}active{% endif %}" href="{% url 'registrar_asistencia_qr' %}">
+                                    <i class="bi bi-qr-code-scan"></i> Escanear QR
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'reportes' in request.path %}active{% endif %}" href="{% url 'reporte_asistencia' %}">
+                                    <i class="bi bi-file-earmark-bar-graph"></i> Reportes
+                                </a>
+                            </li>
+                            {% if user.is_staff or user.is_superuser %}
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'secciones/registrar-multiples' in request.path %}active{% endif %}" href="{% url 'registrar_secciones_multiples' %}">
+                                    <i class="bi bi-plus-square"></i> Registrar Secciones
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'importar' in request.path %}active{% endif %}" href="{% url 'importar_estudiantes_web' %}">
+                                    <i class="bi bi-upload"></i> Importar Estudiantes
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li class="nav-item mt-auto mb-3">
+                                <a class="nav-link" href="/admin/">
+                                    <i class="bi bi-gear"></i> Administración
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+
             <!-- Contenido Principal -->
-            <main class="col-md-9 ms-sm-auto col-lg-10 content-area">
+            <main class="col-12 col-md-10 ms-sm-auto col-lg-10 content-area">
                 <!-- Mensajes -->
                 {% if messages %}
                     {% for message in messages %}
