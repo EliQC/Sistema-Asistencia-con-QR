@@ -24,6 +24,8 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #ecf0f1;
+            /* espacio para navbar fijo */
+            padding-top: 56px;
         }
         
         .navbar {
@@ -36,6 +38,7 @@
             min-height: calc(100vh - 56px);
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
             padding: 20px 0;
+            z-index: 100; /* encima del contenido si es fixed */
         }
         
         .sidebar .nav-link {
@@ -59,6 +62,23 @@
         
         .content-area {
             padding: 30px;
+            transition: margin-left 0.2s ease, padding 0.2s ease;
+        }
+
+        /* Ajustes para pantallas medianas/desktop: fijar sidebar y dar margen al contenido */
+        @media (min-width: 768px) {
+            .sidebar {
+                position: fixed;
+                top: 56px; /* altura del navbar fijo */
+                bottom: 0;
+                width: 220px; /* ancho fijo del sidebar en desktop */
+                overflow-y: auto;
+            }
+
+            .content-area {
+                margin-left: 240px; /* dejar espacio para el sidebar + separación */
+                padding: 30px 40px;
+            }
         }
         
         .card {
