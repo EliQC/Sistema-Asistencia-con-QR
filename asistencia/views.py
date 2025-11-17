@@ -159,34 +159,43 @@ def registrar_asistencia_manual(request):
         # usar hora local y comparar con objetos time naive
         _now_local = timezone.localtime()
         hora_actual = _now_local.time().replace(tzinfo=None)
-        asistencia_existente = Asistencia.objects.filter(
-            estudiante=estudiante,
-            fecha=hoy
-        ).first()
+        # Comprobar existencia de asistencia para la fecha local calculada
+        asistencia_existente = Asistencia.objects.filter(estudiante=estudiante, fecha=hoy).first()
 
         if asistencia_existente:
             messages.warning(request, f'Ya existe un registro de asistencia para {estudiante} hoy.')
         else:
-            # Horarios del centro
+            # Reglas de horario actualizadas para registro manual:
+            # - Registro permitido desde las 12:00 hasta las 17:30
+            # - Puntual: 12:00 - 12:30 (inclusive)
+            # - Tarde: después de 12:30 hasta 17:30
+            earliest_registro = time(12, 0)
             inicio_clase = time(12, 30)
-            limite_tarde = time(12, 40)
+            limite_puntual = time(12, 30)
             fin_clase = time(17, 30)
 
-            # Si se intenta registrar después del fin de clases, no se permite desde la UI
-            if hora_actual > fin_clase:
-                messages.error(request, f'No se puede registrar asistencia: el día lectivo terminó a las {fin_clase.strftime("%H:%M")}')
+            # No permitir registros antes del horario de inicio permitido
+            if hora_actual < earliest_registro:
+                # Mostrar en formato 12 horas para evitar ambigüedades (ej. 12:00 PM)
+                messages.error(request, f'No se puede registrar asistencia: el horario de registro inicia a las {earliest_registro.strftime("%I:%M %p").lstrip("0").replace("AM","am").replace("PM","pm")}')
             else:
-                # Si el estado no fue enviado, deducir en base a la hora
-                if not estado:
-                    if hora_actual <= limite_tarde:
-                        estado_calculado = 'puntual'
-                    else:
-                        estado_calculado = 'tarde'
+                # Si se intenta registrar después del fin de clases, no se permite desde la UI
+                if hora_actual > fin_clase:
+                    messages.error(request, f'No se puede registrar asistencia: el día lectivo terminó a las {fin_clase.strftime("%I:%M %p").lstrip("0").replace("AM","am").replace("PM","pm")}')
                 else:
-                    estado_calculado = estado
+                    # Si el estado no fue enviado, deducir en base a la hora
+                    if not estado:
+                        if earliest_registro <= hora_actual <= limite_puntual:
+                            estado_calculado = 'puntual'
+                        else:
+                            estado_calculado = 'tarde'
+                    else:
+                        estado_calculado = estado
 
                 Asistencia.objects.create(
                     estudiante=estudiante,
+                    fecha=_now_local.date(),
+                    hora=hora_actual,
                     estado=estado_calculado,
                     observacion=observacion
                 )
@@ -216,42 +225,64 @@ def registrar_asistencia_qr(request):
             
             # Verificar si ya se registró hoy
             hoy = timezone.localdate()
-            asistencia_existente = Asistencia.objects.filter(
-                estudiante=estudiante,
-                fecha=hoy
-            ).first()
+            # Comprobar existencia de asistencia para la fecha local calculada (más robusto)
+            # DEBUG: imprimir fecha local y registros existentes (solo para diagnóstico en tests)
+            try:
+                print(f"DEBUG: hoy={hoy} - existing_count={Asistencia.objects.filter(estudiante=estudiante, fecha=hoy).count()}")
+            except Exception:
+                pass
+            asistencia_existente = Asistencia.objects.filter(estudiante=estudiante, fecha=hoy).first()
 
             if asistencia_existente:
                 return JsonResponse({
                     'success': False,
-                    'message': f'{estudiante.nombre} {estudiante.apellido} ya registró asistencia hoy a las {asistencia_existente.hora.strftime("%H:%M")}'
+                    'message': f'{estudiante.nombre} {estudiante.apellido} ya registró asistencia hoy a las {asistencia_existente.hora.strftime("%I:%M %p").lstrip("0").replace("AM","am").replace("PM","pm")}'
                 })
 
             # Determinar el estado según la hora y las reglas del centro
             # usar hora local y comparar con objetos time naive
             _now_local = timezone.localtime()
             hora_actual = _now_local.time().replace(tzinfo=None)
+            # Reglas de horario actualizadas:
+            # - Registro permitido desde las 12:00 hasta las 17:30
+            # - Puntual: 12:00 - 12:30 (inclusive)
+            # - Tarde: después de 12:30 hasta 17:30
+            earliest_registro = time(12, 0)
             inicio_clase = time(12, 30)
-            limite_tarde = time(12, 40)
+            limite_puntual = time(12, 30)
             fin_clase = time(17, 30)
+
+            # No permitir registros antes del horario de inicio permitido
+            if hora_actual < earliest_registro:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'No es posible registrar asistencia: el horario de registro inicia a las {earliest_registro.strftime("%I:%M %p").lstrip("0").replace("AM","am").replace("PM","pm")}'
+                })
 
             # Si ya pasó el fin de clases, no registramos via QR (las faltas se marcarán con comando al final del día)
             if hora_actual > fin_clase:
                 return JsonResponse({
                     'success': False,
-                    'message': f'No es posible registrar asistencia: el horario de clase finalizó a las {fin_clase.strftime("%H:%M")}'
+                    'message': f'No es posible registrar asistencia: el horario de clase finalizó a las {fin_clase.strftime("%I:%M %p").lstrip("0").replace("AM","am").replace("PM","pm")}'
                 })
 
-            if hora_actual <= limite_tarde:
+            # Determinar puntual/tarde
+            if earliest_registro <= hora_actual <= limite_puntual:
                 estado = 'puntual'
             else:
                 estado = 'tarde'
 
-            # Crear el registro
+            # Crear el registro usando la fecha/hora local calculada (evita dependencias de auto_now_add en tests)
             asistencia = Asistencia.objects.create(
                 estudiante=estudiante,
+                fecha=_now_local.date(),
+                hora=hora_actual,
                 estado=estado
             )
+            try:
+                print(f"DEBUG: created asistencia id={asistencia.id} fecha={asistencia.fecha} total_for_student={Asistencia.objects.filter(estudiante=estudiante).count()}")
+            except Exception:
+                pass
             
             return JsonResponse({
                 'success': True,
@@ -259,7 +290,7 @@ def registrar_asistencia_qr(request):
                 'grado': str(estudiante.grado),
                 'seccion': str(estudiante.seccion),
                 'estado': estado,
-                'hora': asistencia.hora.strftime('%H:%M:%S')
+                'hora': asistencia.hora.strftime('%I:%M:%S %p').lstrip('0').replace('AM','am').replace('PM','pm')
             })
             
         except Estudiante.DoesNotExist:
