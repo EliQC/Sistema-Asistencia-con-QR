@@ -66,39 +66,46 @@ class AsistenciaRulesTest(TestCase):
 		self.client = Client()
 
 	def post_qr(self, codigo_qr, when_dt):
-		# Patch timezone.now to return when_dt (aware)
-		class Dummy:
-			@staticmethod
-			def now():
-				return when_dt
+		# Patch timezone.localtime in the views to return the provided when_dt
+		def fake_localtime(*args, **kwargs):
+			# mimic django.utils.timezone.localtime signature
+			return when_dt
 
-		with patch('asistencia.views.timezone', Dummy):
+		with patch('asistencia.views.timezone.localtime', fake_localtime):
 			return self.client.post('/asistencia/escanear/', {'codigo_qr': codigo_qr})
 
-	def test_puntual_before_or_equal_1240(self):
-		# 12:35 -> puntual
-		dt = timezone.make_aware(datetime(2025, 11, 4, 12, 35))
+	def test_puntual_between_1200_and_1230(self):
+		# 12:15 -> puntual (12:00-12:30)
+		dt = timezone.make_aware(datetime(2025, 11, 4, 12, 15))
 		resp = self.post_qr('87654321', dt)
 		self.assertEqual(resp.status_code, 200)
 		data = resp.json()
 		self.assertTrue(data['success'])
 		self.assertEqual(data['estado'], 'puntual')
 
-	def test_puntual_at_1240_boundary(self):
-		dt = timezone.make_aware(datetime(2025, 11, 4, 12, 40))
+	def test_puntual_at_1230_boundary(self):
+		dt = timezone.make_aware(datetime(2025, 11, 4, 12, 30))
 		resp = self.post_qr('87654321', dt)
 		self.assertEqual(resp.status_code, 200)
 		data = resp.json()
 		self.assertTrue(data['success'])
 		self.assertEqual(data['estado'], 'puntual')
 
-	def test_tarde_after_1240(self):
-		dt = timezone.make_aware(datetime(2025, 11, 4, 12, 41))
+	def test_tarde_after_1230(self):
+		dt = timezone.make_aware(datetime(2025, 11, 4, 12, 31))
 		resp = self.post_qr('87654321', dt)
 		self.assertEqual(resp.status_code, 200)
 		data = resp.json()
 		self.assertTrue(data['success'])
 		self.assertEqual(data['estado'], 'tarde')
+
+	def test_prevent_registration_before_noon(self):
+		# 00:21 -> fuera de horario, no debe registrar
+		dt = timezone.make_aware(datetime(2025, 11, 5, 0, 21))
+		resp = self.post_qr('87654321', dt)
+		self.assertEqual(resp.status_code, 200)
+		data = resp.json()
+		self.assertFalse(data['success'])
 
 	def test_prevent_double_mark(self):
 		dt = timezone.make_aware(datetime(2025, 11, 4, 12, 35))
