@@ -109,14 +109,22 @@
 </head>
 <body>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
         <div class="container-fluid">
+            <!-- Botón para Sidebar en móvil -->
+            <button class="navbar-toggler me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu" aria-controls="sidebarMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
             <a class="navbar-brand" href="{% url 'dashboard' %}">
-                <i class="bi bi-clipboard-check"></i> IEJAQG - Sistema de Asistencia
+                <i class="bi bi-clipboard-check"></i> IEJAQG - Asistencia
             </a>
+            
+            <!-- Botón para menú de usuario en móvil -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item dropdown">
@@ -137,8 +145,12 @@
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <nav class="col-md-2 col-lg-2 d-md-block sidebar">
-                <div class="position-sticky">
+            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar offcanvas offcanvas-start" tabindex="-1">
+                <div class="offcanvas-header">
+                    <h5 class="offcanvas-title">Menú</h5>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+                <div class="offcanvas-body d-flex flex-column p-0">
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="{% url 'dashboard' %}">
@@ -168,7 +180,7 @@
                         {% if user.is_staff or user.is_superuser %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'secciones/registrar-multiples' in request.path %}active{% endif %}" href="{% url 'registrar_secciones_multiples' %}">
-                                <i class="bi bi-plus-square"></i> Registrar Secciones Múltiples
+                                <i class="bi bi-plus-square"></i> Registrar Secciones
                             </a>
                         </li>
                         <li class="nav-item">
@@ -177,7 +189,7 @@
                             </a>
                         </li>
                         {% endif %}
-                        <li class="nav-item mt-3">
+                        <li class="nav-item mt-auto mb-3">
                             <a class="nav-link" href="/admin/">
                                 <i class="bi bi-gear"></i> Administración
                             </a>
@@ -187,7 +199,7 @@
             </nav>
 
             <!-- Contenido Principal -->
-            <main class="col-md-10 ms-sm-auto col-lg-10 content-area">
+            <main class="col-md-9 ms-sm-auto col-lg-10 content-area">
                 <!-- Mensajes -->
                 {% if messages %}
                     {% for message in messages %}
